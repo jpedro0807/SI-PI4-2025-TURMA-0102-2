@@ -1,13 +1,13 @@
 package com.healthmoney.healthmoney.controller;
 
+import com.healthmoney.healthmoney.domain.Despesa;
 import com.healthmoney.healthmoney.dto.RelatorioFinanceiroDTO;
 import com.healthmoney.healthmoney.repository.DespesaRepository;
 import com.healthmoney.healthmoney.repository.NotaFiscalRepository;
+import lombok.Data;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -51,6 +51,36 @@ public class RelatorioController {
             catDespesas.add(new RelatorioFinanceiroDTO.CategoriaValor("Operacional", despesas));
         }
 
-        return new RelatorioFinanceiroDTO(receita, despesas, saldo, BigDecimal.ZERO, catReceitas, catDespesas);
+        return new RelatorioFinanceiroDTO(
+                receita,
+                despesas,
+                saldo,
+                BigDecimal.ZERO,
+                catReceitas,
+                catDespesas
+        );
+    }
+
+    // ========= NOVO ENDPOINT: CADASTRAR DESPESA =========
+    @PostMapping("/despesas")
+    @ResponseStatus(HttpStatus.CREATED)
+    public Despesa criarDespesa(@RequestBody NovaDespesaRequest request) {
+        Despesa despesa = new Despesa();
+        despesa.setDescricao(request.getDescricao());
+        despesa.setCategoria(request.getCategoria());
+        despesa.setValor(request.getValor());
+        despesa.setDataPagamento(request.getDataPagamento());
+
+        return despesaRepository.save(despesa);
+    }
+
+    // DTO para receber a despesa do frontend
+    @Data
+    public static class NovaDespesaRequest {
+        private String descricao;
+        private String categoria;
+        private BigDecimal valor;
+        // vai mapear o campo "dataPagamento" enviado no JSON
+        private LocalDate dataPagamento;
     }
 }
