@@ -17,49 +17,58 @@ import {
 } from "recharts";
 
 export default function DashboardPage() {
+	// Estado que armazena os dados retornados da API /api/dashboard
 	const [data, setData] = useState(null);
+	// Controle de carregamento da página (spinner enquanto busca os dados)
 	const [loading, setLoading] = useState(true);
 
-	// Busca os dados do Java ao abrir a tela
+	// Busca os dados do backend Java ao abrir a tela
 	useEffect(() => {
 		async function fetchDashboard() {
 			try {
 				const response = await fetch("/api/dashboard");
 
-				// Se a sessão caiu, manda pro login
+				// Se a sessão expirou ou não está autenticado, redireciona para login
 				if (response.status === 401) {
 					window.location.href = "/login";
 					return;
 				}
 
+				// Converte o corpo da resposta em JSON e armazena no estado
 				const json = await response.json();
 				setData(json);
 			} catch (error) {
 				console.error("Erro ao carregar dashboard", error);
 			} finally {
+				// Independente de sucesso ou erro, encerra o loading
 				setLoading(false);
 			}
 		}
 		fetchDashboard();
-	}, []);
+	}, []); // [] garante que será executado apenas uma vez ao montar o componente
 
+	// Enquanto estiver carregando, exibe um spinner centralizado
 	if (loading)
 		return (
 			<div className='p-8 flex justify-center'>
 				<div className='animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500'></div>
 			</div>
 		);
+
+	// Se não conseguiu obter dados (objeto nulo), mostra mensagem simples de erro
 	if (!data)
 		return <div className='p-8'>Não foi possível carregar os dados.</div>;
 
 	return (
 		<main className='flex-1 ml-64 p-8 bg-gray-50 min-h-screen'>
+			{/* Cabeçalho do Dashboard */}
 			<div className='mb-8'>
 				<h2 className='text-3xl font-bold text-gray-900'>Dashboard</h2>
 				<p className='text-gray-500 mt-1'>Bem-vindo ao Health Money</p>
 			</div>
 
 			{/* --- CARDS DO TOPO (Valores Reais do Banco) --- */}
+			{/* Cada card usa o componente auxiliar DashboardCard para ficar mais organizado */}
 			<div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8'>
 				<DashboardCard
 					title='Total de Pacientes'
@@ -91,9 +100,9 @@ export default function DashboardPage() {
 				/>
 			</div>
 
-			{/* --- GRÁFICO E LISTA LATERAL --- */}
+			{/* --- GRÁFICO E CARD LATERAL --- */}
 			<div className='grid grid-cols-1 lg:grid-cols-3 gap-6'>
-				{/* Gráfico Principal (Fluxo de Caixa) */}
+				{/* Gráfico Principal (Fluxo de Caixa dos últimos 6 meses) */}
 				<div className='lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-gray-100'>
 					<div className='flex items-center gap-2 mb-6'>
 						<TrendingUp size={20} className='text-emerald-500' />
@@ -102,9 +111,12 @@ export default function DashboardPage() {
 						</h3>
 					</div>
 
+					{/* Gráfico responsivo usando Recharts */}
 					<div className='h-[300px] w-full'>
 						<ResponsiveContainer width='100%' height='100%'>
+							{/* data.fluxoCaixa deve ser um array de objetos com { mes, valor } */}
 							<AreaChart data={data.fluxoCaixa}>
+								{/* Definição de gradiente para preencher a área do gráfico */}
 								<defs>
 									<linearGradient
 										id='colorReceita'
@@ -124,11 +136,15 @@ export default function DashboardPage() {
 										/>
 									</linearGradient>
 								</defs>
+
+								{/* Grade de fundo do gráfico */}
 								<CartesianGrid
 									strokeDasharray='3 3'
 									vertical={false}
 									stroke='#f0f0f0'
 								/>
+
+								{/* Eixo X: exibe o campo "mes" (nome/abreviação do mês) */}
 								<XAxis
 									dataKey='mes'
 									axisLine={false}
@@ -136,23 +152,30 @@ export default function DashboardPage() {
 									tick={{ fill: "#9ca3af", fontSize: 12 }}
 									dy={10}
 								/>
+
+								{/* Eixo Y: valores em reais (formatter aqui está simplificado) */}
 								<YAxis
 									axisLine={false}
 									tickLine={false}
 									tick={{ fill: "#9ca3af", fontSize: 12 }}
-									tickFormatter={(value) => `k`} // Simplifica visualização se valor for alto
+									tickFormatter={(value) => `k`} // Placeholder simples para não poluir visual
 								/>
+
+								{/* Tooltip customizado para quando passa o mouse sobre o gráfico */}
 								<Tooltip
 									contentStyle={{
 										borderRadius: "8px",
 										border: "none",
-										boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
+										boxShadow:
+											"0 4px 6px -1px rgb(0 0 0 / 0.1)",
 									}}
 									formatter={(value) => [
 										`R$ ${value.toFixed(2)}`,
 										"Receita",
 									]}
 								/>
+
+								{/* Área da Receita (linha + preenchimento em degradê) */}
 								<Area
 									type='monotone'
 									dataKey='valor'
@@ -166,7 +189,7 @@ export default function DashboardPage() {
 					</div>
 				</div>
 
-				{/* Card Lateral (Placeholder para tipos de atendimento) */}
+				{/* Card Lateral (placeholder para futuro gráfico de tipos de atendimento) */}
 				<div className='bg-white p-6 rounded-xl shadow-sm border border-gray-100'>
 					<h3 className='font-bold text-gray-800 mb-6'>
 						Atendimentos por Tipo
@@ -180,8 +203,9 @@ export default function DashboardPage() {
 	);
 }
 
-// Componente auxiliar para os Cards (Fica mais limpo)
+// Componente auxiliar para os Cards (deixa o JSX do Dashboard mais limpo)
 function DashboardCard({ title, value, icon: Icon, color, subtext }) {
+	// Mapeia nomes de cores para classes Tailwind usadas no ícone
 	const colors = {
 		blue: "bg-blue-50 text-blue-600",
 		purple: "bg-purple-50 text-purple-600",
@@ -193,14 +217,20 @@ function DashboardCard({ title, value, icon: Icon, color, subtext }) {
 		<div className='bg-white p-6 rounded-xl shadow-sm border border-gray-100 transition-all hover:shadow-md'>
 			<div className='flex justify-between items-start'>
 				<div>
-					<p className='text-sm font-medium text-gray-500 mb-1'>{title}</p>
+					{/* Título do card */}
+					<p className='text-sm font-medium text-gray-500 mb-1'>
+						{title}
+					</p>
+					{/* Valor principal (número, dinheiro etc.) */}
 					<h3 className='text-2xl font-bold text-gray-900'>{value}</h3>
+					{/* Texto complementar opcional (quando subtext é passado) */}
 					{subtext && (
 						<p className='text-xs text-emerald-600 mt-2 font-medium'>
 							{subtext}
 						</p>
 					)}
 				</div>
+				{/* Ícone do card com cor de fundo baseada na prop "color" */}
 				<div className={`p-3 rounded-lg ${colors[color]}`}>
 					<Icon size={24} />
 				</div>
