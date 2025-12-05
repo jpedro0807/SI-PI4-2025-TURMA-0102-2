@@ -8,16 +8,18 @@ import getDay from "date-fns/getDay";
 import ptBR from "date-fns/locale/pt-BR";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 
-// Configuração do Localizer
+// Configuração do Localizer da biblioteca react-big-calendar
+// Necessário para permitir datas com formatação e idioma PT-BR usando date-fns
 const locales = { "pt-BR": ptBR };
 const localizer = dateFnsLocalizer({
-	format,
-	parse,
-	startOfWeek: () => startOfWeek(new Date(), { weekStartsOn: 0 }),
-	getDay,
-	locales,
+	format, // Função para formatar datas
+	parse, // Função para converter string em Date
+	startOfWeek: () => startOfWeek(new Date(), { weekStartsOn: 0 }), // Semana começa no domingo
+	getDay, // Obtém o dia da semana
+	locales, // Idioma configurado
 });
 
+// Textos traduzidos usados pelo calendário
 const messages = {
 	allDay: "Dia todo",
 	previous: "<",
@@ -35,11 +37,16 @@ const messages = {
 };
 
 export default function AgendaPage() {
+	// Lista de eventos exibidos no calendário
 	const [events, setEvents] = useState([]);
+
+	// Controle de abertura/fechamento do modal
 	const [isModalOpen, setIsModalOpen] = useState(false);
+
+	// Estado de loading para bloquear botão e mostrar ícone de carregamento
 	const [loading, setLoading] = useState(false);
 
-	// Estado do Formulário
+	// Estado do formulário de novo agendamento
 	const [novoEvento, setNovoEvento] = useState({
 		titulo: "",
 		dataInicio: "",
@@ -49,13 +56,15 @@ export default function AgendaPage() {
 		emailPaciente: "",
 	});
 
-	// Estado para erros de validação
+	// Estado para armazenar erros de validação dos campos
 	const [errors, setErrors] = useState({});
 
+	// Função responsável por buscar eventos na API
 	const fetchEvents = async () => {
 		try {
 			const response = await fetch("/api/agenda/listar");
 
+			// Se a sessão expirou, redireciona para login
 			if (response.status === 401) {
 				console.warn("Sessão expirada. Redirecionando...");
 				window.location.href = "/login";
@@ -64,11 +73,13 @@ export default function AgendaPage() {
 
 			if (response.ok) {
 				const data = await response.json();
+
+				// Conversão dos eventos recebidos para o formato exigido pelo calendário
 				const eventosFormatados = data.map((evt) => ({
 					title: evt.titulo,
 					start: new Date(evt.inicio),
 					end: new Date(evt.fim || evt.inicio),
-					resource: evt,
+					resource: evt, // Guarda o evento original caso precise usar depois
 				}));
 
 				setEvents(eventosFormatados);
@@ -80,23 +91,24 @@ export default function AgendaPage() {
 		}
 	};
 
+	// Executa fetchEvents ao renderizar a página pela primeira vez
 	useEffect(() => {
 		fetchEvents();
 	}, []);
 
-	// --- FUNÇÃO DE VALIDAÇÃO ---
+	// Validação dos campos do formulário de agendamento
 	const validateForm = () => {
 		const newErrors = {};
-		const now = new Date(); // Data e hora atual
+		const now = new Date(); // Data e hora atual para validações
 
-		// 1. Título: Máximo 255 caracteres e Obrigatório
+		// 1. Validação do título
 		if (!novoEvento.titulo.trim()) {
 			newErrors.titulo = "O título é obrigatório.";
 		} else if (novoEvento.titulo.length > 255) {
 			newErrors.titulo = "O título não pode ter mais de 255 caracteres.";
 		}
 
-		// 2. Data e Hora: Não pode ser no passado
+		// 2. Validação para garantir que a data e hora não sejam no passado
 		if (novoEvento.dataInicio && novoEvento.horaInicio) {
 			const inicioDateTime = new Date(
 				`${novoEvento.dataInicio}T${novoEvento.horaInicio}`
@@ -106,9 +118,8 @@ export default function AgendaPage() {
 			}
 		}
 
-		// 3. Fim deve ser maior que Início
+		// 3. Hora final deve ser maior que a hora inicial
 		if (novoEvento.horaInicio && novoEvento.horaFim) {
-			// Cria objetos Date arbitrários no mesmo dia para comparar apenas as horas
 			const inicio = new Date(`2000-01-01T${novoEvento.horaInicio}`);
 			const fim = new Date(`2000-01-01T${novoEvento.horaFim}`);
 
@@ -117,7 +128,7 @@ export default function AgendaPage() {
 			}
 		}
 
-		// 4. Email: Obrigatório e Formato Válido
+		// 4. Validação de email obrigatório e com formato correto
 		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 		if (!novoEvento.emailPaciente) {
 			newErrors.emailPaciente = "O e-mail do paciente é obrigatório.";
@@ -126,23 +137,27 @@ export default function AgendaPage() {
 		}
 
 		setErrors(newErrors);
-		// Retorna true se não houver chaves de erro no objeto
+
+		// Retorna true se não houver erros
 		return Object.keys(newErrors).length === 0;
 	};
 
+	// Função executada ao enviar o formulário de agendamento
 	const handleSubmit = async (e) => {
-		e.preventDefault();
+		e.preventDefault(); // Impede reload da página
 
-		// Roda a validação antes de enviar
+		// Só continua se os dados forem válidos
 		if (!validateForm()) {
-			return; // Para aqui se houver erros
+			return;
 		}
 
-		setLoading(true);
+		setLoading(true); // Ativa indicador de envio
 
+		// Converte data + horário para formato ISO e envia para o backend
 		const dataInicioISO = `${novoEvento.dataInicio}T${novoEvento.horaInicio}:00`;
 		const dataFimISO = `${novoEvento.dataInicio}T${novoEvento.horaFim}:00`;
 
+		// Objeto enviado para a API
 		const payload = {
 			titulo: novoEvento.titulo,
 			dataInicio: dataInicioISO,
@@ -158,6 +173,7 @@ export default function AgendaPage() {
 				body: JSON.stringify(payload),
 			});
 
+			// Sessão expirada
 			if (response.status === 401) {
 				window.location.href = "/login";
 				return;
@@ -165,7 +181,9 @@ export default function AgendaPage() {
 
 			if (response.ok) {
 				alert("Agendamento criado com sucesso!");
-				setIsModalOpen(false);
+				setIsModalOpen(false); // Fecha modal
+
+				// Reseta formulário
 				setNovoEvento({
 					titulo: "",
 					dataInicio: "",
@@ -174,29 +192,33 @@ export default function AgendaPage() {
 					descricao: "",
 					emailPaciente: "",
 				});
+
 				setErrors({}); // Limpa erros
-				fetchEvents();
+				fetchEvents(); // Atualiza lista do calendário
 			} else {
 				alert("Erro ao criar evento. Tente novamente.");
 			}
 		} catch (error) {
 			console.error("Erro:", error);
 		} finally {
-			setLoading(false);
+			setLoading(false); // Envio finalizado
 		}
 	};
 
 	return (
 		<main className='flex-1 ml-64 p-8 relative'>
+			{/* Cabeçalho da página com botão para criar novo atendimento */}
 			<header className='flex justify-between items-center mb-8'>
 				<div>
 					<h2 className='text-3xl font-bold text-gray-900'>Agenda</h2>
 					<p className='text-gray-500 mt-1'>Gerencie seus atendimentos</p>
 				</div>
+
+				{/* Botão que abre o modal */}
 				<button
 					onClick={() => {
 						setIsModalOpen(true);
-						setErrors({}); // Limpa erros ao abrir modal
+						setErrors({}); // Limpa erros ao abrir o modal
 					}}
 					className='flex items-center gap-2 bg-emerald-500 text-white px-4 py-2 rounded-lg font-medium hover:bg-emerald-600 transition-colors'>
 					<Plus size={16} />
@@ -204,19 +226,21 @@ export default function AgendaPage() {
 				</button>
 			</header>
 
+			{/* Calendário principal */}
 			<div className='bg-white p-6 rounded-xl shadow-sm border border-gray-100'>
 				<Calendar
-					localizer={localizer}
-					events={events}
-					messages={messages}
+					localizer={localizer} // Localização configurada (PT-BR)
+					events={events} // Lista de eventos
+					messages={messages} // Textos traduzidos
 					culture='pt-BR'
-					startAccessor='start'
-					endAccessor='end'
+					startAccessor='start' // Campo onde o calendário lê a data inicial
+					endAccessor='end' // Campo onde o calendário lê a data final
 					defaultView='month'
 					views={["month", "week", "day"]}
 					style={{ height: "700px" }}
 					className='font-sans text-gray-600'
 					eventPropGetter={(event) => ({
+						// Estilização dos eventos no calendário
 						style: {
 							backgroundColor: "#10b981",
 							borderRadius: "4px",
@@ -228,9 +252,11 @@ export default function AgendaPage() {
 				/>
 			</div>
 
+			{/* Modal de criação de agendamento */}
 			{isModalOpen && (
 				<div className='fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4'>
 					<div className='bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200'>
+						{/* Cabeçalho do modal */}
 						<div className='flex justify-between items-center p-5 border-b'>
 							<h3 className='text-xl font-bold text-gray-800'>
 								Novo Agendamento
@@ -242,6 +268,7 @@ export default function AgendaPage() {
 							</button>
 						</div>
 
+						{/* Formulário */}
 						<form onSubmit={handleSubmit} className='p-5 space-y-4'>
 							{/* TÍTULO */}
 							<div>
@@ -250,11 +277,9 @@ export default function AgendaPage() {
 								</label>
 								<input
 									type='text'
-									maxLength={255} // Limita digitação no HTML
+									maxLength={255} // Limita digitação
 									className={`w-full border rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none ${
-										errors.titulo
-											? "border-red-500"
-											: "border-gray-300"
+										errors.titulo ? "border-red-500" : "border-gray-300"
 									}`}
 									value={novoEvento.titulo}
 									onChange={(e) =>
@@ -282,9 +307,7 @@ export default function AgendaPage() {
 										required
 										type='date'
 										className={`w-full border rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none ${
-											errors.dataInicio
-												? "border-red-500"
-												: "border-gray-300"
+											errors.dataInicio ? "border-red-500" : "border-gray-300"
 										}`}
 										value={novoEvento.dataInicio}
 										onChange={(e) =>
@@ -300,7 +323,8 @@ export default function AgendaPage() {
 										</p>
 									)}
 								</div>
-								<div>{/* Espaço vazio para grid */}</div>
+								{/* Coluna vazia apenas para ajuste visual */}
+								<div></div>
 							</div>
 
 							{/* HORÁRIOS */}
@@ -322,6 +346,7 @@ export default function AgendaPage() {
 										}
 									/>
 								</div>
+
 								<div>
 									<label className='block text-sm font-medium text-gray-700 mb-1'>
 										Fim
@@ -330,9 +355,7 @@ export default function AgendaPage() {
 										required
 										type='time'
 										className={`w-full border rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none ${
-											errors.horaFim
-												? "border-red-500"
-												: "border-gray-300"
+											errors.horaFim ? "border-red-500" : "border-gray-300"
 										}`}
 										value={novoEvento.horaFim}
 										onChange={(e) =>
@@ -396,12 +419,14 @@ export default function AgendaPage() {
 									}></textarea>
 							</div>
 
+							{/* BOTÃO DE CONFIRMAR */}
 							<div className='pt-2'>
 								<button
 									type='submit'
 									disabled={loading}
 									className='w-full bg-emerald-500 text-white font-bold py-3 rounded-lg hover:bg-emerald-600 transition-colors flex justify-center items-center gap-2'>
 									{loading ? (
+										// Ícone de carregamento
 										<Loader2 className='animate-spin' />
 									) : (
 										"Confirmar Agendamento"
