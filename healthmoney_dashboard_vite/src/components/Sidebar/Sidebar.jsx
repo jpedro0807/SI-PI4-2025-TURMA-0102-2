@@ -5,14 +5,16 @@ import {
   Calendar, 
   FileText, 
   BarChart3, 
-  Stethoscope 
+  Stethoscope,
+  LogOut
 } from 'lucide-react';
+
 import SidebarItem from '../SideBarItem/SideBarItem.jsx';
 
 export default function Sidebar({ activePage = 'dashboard' }) {
   return (
     <aside className="w-64 bg-white border-r border-gray-200 fixed h-full left-0 top-0 z-10 flex flex-col">
-   
+      
       <div className="p-6 flex items-center gap-3">
         <div className="bg-emerald-500 p-2 rounded-lg text-white">
           <Stethoscope size={24} />
@@ -23,10 +25,8 @@ export default function Sidebar({ activePage = 'dashboard' }) {
         </div>
       </div>
 
-      
       <nav className="flex-1 px-4 mt-4">
         <ul className="space-y-1">
-
           <SidebarItem 
             to="/"
             icon={<LayoutDashboard size={20} />} 
@@ -52,13 +52,22 @@ export default function Sidebar({ activePage = 'dashboard' }) {
             active={activePage === 'notas'}
           />
           <SidebarItem 
-             to="/relatorios"
+            to="/relatorios"
             icon={<BarChart3 size={20} />} 
             text="Relatórios" 
             active={activePage === 'relatorios'}
           />
         </ul>
       </nav>
+
+      <div className="px-4 pb-6">
+        <SidebarItem 
+          to="/login"
+          icon={<LogOut size={20} />} 
+          text="Sair" 
+          active={false}
+        />
+      </div>
     </aside>
   );
 }
